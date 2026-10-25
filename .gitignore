@@ -138,3 +138,7 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+
+# 本地 SQLite 数据库（可由 bootstrap_db.py 重建，勿提交）
+chenguang.db
+chenguang.db.bak_*
