@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>辰光Agent平台 — 权限管理</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --navy: #0F172A; --navy-light: #1E293B; --navy-muted: #334155;
+    --amber: #F59E0B; --amber-light: #FEF3C7;
+    --bg: #F8FAFC; --surface: #FFFFFF;
+    --border: #E2E8F0; --border-light: #F1F5F9;
+    --text: #0F172A; --text-muted: #64748B; --text-faint: #94A3B8;
+    --red: #EF4444; --green: #10B981; --blue: #3B82F6; --purple: #8B5CF6;
+    --radius: 8px; --radius-sm: 6px;
+    --sidebar-w: 240px; --topbar-h: 56px;
+  }
+  body { font-family: 'Inter', 'Noto Sans SC', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; }
+  .sidebar { width: var(--sidebar-w); background: var(--navy); height: 100vh; position: fixed; left: 0; top: 0; display: flex; flex-direction: column; z-index: 100; overflow-y: auto; }
+  .sidebar-logo { padding: 20px 20px 16px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--navy-muted); }
+  .sidebar-logo-icon { width: 32px; height: 32px; background: linear-gradient(135deg, var(--amber), #D97706); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: var(--navy); flex-shrink: 0; }
+  .sidebar-logo-text { font-size: 14px; font-weight: 600; color: #F1F5F9; letter-spacing: -0.2px; line-height: 1.3; }
+  .sidebar-logo-text small { display: block; font-size: 10px; font-weight: 400; color: #64748B; }
+  .sidebar-nav { padding: 12px 0; flex: 1; }
+  .nav-section { padding: 8px 20px 4px; font-size: 10px; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 0.8px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 20px; color: #94A3B8; text-decoration: none; font-size: 13px; font-weight: 400; transition: all 0.15s; cursor: pointer; border-left: 3px solid transparent; }
+  .nav-item:hover { color: #CBD5E1; background: rgba(255,255,255,0.04); }
+  .nav-item.active { color: var(--amber); background: rgba(245,158,11,0.08); border-left-color: var(--amber); font-weight: 500; }
+  .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; opacity: 0.7; }
+  .nav-item.active svg { opacity: 1; }
+  .nav-divider { height: 1px; background: var(--navy-muted); margin: 8px 20px; }
+  .sidebar-user { padding: 16px 20px; border-top: 1px solid var(--navy-muted); display: flex; align-items: center; gap: 10px; }
+  .sidebar-avatar { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--amber), #D97706); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: var(--navy); flex-shrink: 0; }
+  .sidebar-user-info { flex: 1; min-width: 0; }
+  .sidebar-username { font-size: 13px; font-weight: 600; color: #F1F5F9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sidebar-role { font-size: 11px; color: #64748B; }
+  .sidebar-logout { background: none; border: none; color: #64748B; cursor: pointer; padding: 4px; border-radius: 4px; }
+  .sidebar-logout:hover { color: var(--red); background: rgba(239,68,68,0.1); }
+  .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+  .topbar { height: var(--topbar-h); background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 28px; gap: 16px; position: sticky; top: 0; z-index: 50; }
+  .topbar-breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-muted); }
+  .topbar-breadcrumb a { color: var(--text-muted); text-decoration: none; }
+  .topbar-breadcrumb a:hover { color: var(--text); }
+  .topbar-breadcrumb .sep { color: var(--text-faint); }
+  .topbar-breadcrumb .current { color: var(--text); font-weight: 500; }
+  .topbar-spacer { flex: 1; }
+  .topbar-perm-badge { display: flex; align-items: center; gap: 6px; padding: 4px 10px; background: #FEF3C7; border: 1px solid #FDE68A; border-radius: 20px; font-size: 11px; font-weight: 500; color: #92400E; }
+  .topbar-perm-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); }
+  .topbar-btn { background: none; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 12px; font-size: 13px; color: var(--text-muted); cursor: pointer; font-family: inherit; display: flex; align-items: center; gap: 6px; transition: all 0.15s; }
+  .topbar-btn:hover { border-color: var(--text-faint); color: var(--text); }
+  .content { flex: 1; padding: 28px; }
+  .page-header { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 24px; }
+  .page-header h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.4px; color: var(--text); }
+  .page-header p { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+  .page-header-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .card-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .card-header h2 { font-size: 14px; font-weight: 600; flex: 1; }
+  .card-search { display: flex; align-items: center; gap: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 12px; }
+  .card-search input { border: none; background: none; outline: none; font-size: 13px; font-family: inherit; color: var(--text); width: 160px; }
+  .card-body { padding: 0; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { padding: 10px 20px; text-align: left; font-size: 11px; font-weight: 600; color: var(--text-muted); background: var(--bg); border-bottom: 1px solid var(--border); white-space: nowrap; }
+  tbody td { padding: 12px 20px; font-size: 13px; border-bottom: 1px solid var(--border-light); vertical-align: middle; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: #FAFBFC; }
+  .badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 12px; white-space: nowrap; }
+  .badge-green { background: #D1FAE5; color: #065F46; }
+  .badge-blue { background: #DBEAFE; color: #1E40AF; }
+  .badge-amber { background: #FEF3C7; color: #92400E; }
+  .badge-red { background: #FEE2E2; color: #991B1B; }
+  .badge-gray { background: #F1F5F9; color: #64748B; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; cursor: pointer; border: none; font-family: inherit; transition: all 0.15s; text-decoration: none; }
+  .btn svg { width: 14px; height: 14px; }
+  .btn-primary { background: var(--navy); color: #fff; }
+  .btn-primary:hover { background: var(--navy-light); }
+  .btn-secondary { background: var(--surface); color: var(--text-muted); border: 1px solid var(--border); }
+  .btn-secondary:hover { border-color: var(--text-faint); color: var(--text); }
+  .btn-link { background: none; color: var(--blue); padding: 6px 8px; font-size: 12px; text-decoration: none; }
+  .btn-link:hover { text-decoration: underline; }
+  .pagination { padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--border); font-size: 13px; color: var(--text-muted); }
+  .pagination-pages { display: flex; gap: 4px; }
+  .page-btn { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text-muted); font-size: 13px; cursor: pointer; text-decoration: none; font-family: inherit; transition: all 0.15s; }
+  .page-btn:hover { border-color: var(--text-faint); color: var(--text); }
+  .page-btn.active { background: var(--navy); border-color: var(--navy); color: #fff; }
+  .module-tabs { display: flex; gap: 4px; padding: 0 20px; background: var(--bg); border-bottom: 1px solid var(--border); overflow-x: auto; }
+  .module-tab { padding: 10px 14px; font-size: 12px; font-weight: 500; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; transition: all 0.15s; }
+  .module-tab:hover { color: var(--text); }
+  .module-tab.active { color: var(--amber); border-bottom-color: var(--amber); }
+  .module-tab .count { margin-left: 4px; color: var(--text-faint); }
+  .perm-code { font-family: 'Inter', monospace; font-size: 12px; color: var(--text-muted); background: var(--bg); padding: 2px 8px; border-radius: 4px; border: 1px solid var(--border); }
+  .stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+  .stat-label { font-size: 12px; color: var(--text-muted); margin-bottom: 8px; font-weight: 500; }
+  .stat-value { font-size: 28px; font-weight: 700; color: var(--text); letter-spacing: -1px; }
+  .stat-sub { font-size: 12px; color: var(--text-faint); margin-top: 6px; }
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.5); z-index: 200; align-items: center; justify-content: center; }
+  .modal-overlay.active { display: flex; }
+  .modal { background: var(--surface); border-radius: var(--radius); width: 440px; max-width: 90vw; }
+  .modal-header { padding: 20px 24px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .modal-header h3 { font-size: 16px; font-weight: 600; }
+  .modal-close { background: none; border: none; cursor: pointer; color: var(--text-muted); }
+  .modal-body { padding: 24px; }
+  .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; }
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 6px; }
+  .form-group input { width: 100%; padding: 8px 12px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-size: 13px; font-family: inherit; color: var(--text); background: var(--surface); transition: border-color 0.15s; outline: none; }
+  .form-group input:focus { border-color: var(--amber); box-shadow: 0 0 0 3px rgba(245,158,11,0.1); }
+  .form-hint { font-size: 11px; color: var(--text-faint); margin-top: 4px; }
+  .auth-tag { font-size: 11px; padding: 3px 8px; border-radius: 4px; background: var(--bg); color: var(--text-muted); border: 1px solid var(--border); font-family: 'Inter', monospace; font-weight: 500; }
+  .auth-tag.all { background: #FEF3C7; color: #92400E; border-color: #FDE68A; }
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="sidebar-logo-icon">辰</div>
+    <div class="sidebar-logo-text">辰光 Agent<small>Chenguang Platform</small></div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">概览</div>
+    <a class="nav-item" href="dashboard.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      工作台
+    </a>
+    <div class="nav-divider"></div>
+    <div class="nav-section">系统管理</div>
+    <a class="nav-item" href="users.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      用户管理
+    </a>
+    <a class="nav-item" href="roles.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      角色管理
+    </a>
+    <a class="nav-item active" href="permissions.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      权限管理
+    </a>
+  </nav>
+  <div class="sidebar-user">
+    <div class="sidebar-avatar">A</div>
+    <div class="sidebar-user-info">
+      <div class="sidebar-username">admin</div>
+      <div class="sidebar-role">超管 · 数据范围: all</div>
+    </div>
+    <button class="sidebar-logout">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+    </button>
+  </div>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-breadcrumb">
+      <a href="dashboard.html">工作台</a>
+      <span class="sep">/</span>
+      <a href="#">系统管理</a>
+      <span class="sep">/</span>
+      <span class="current">权限管理</span>
+    </div>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-perm-badge">
+      <span class="topbar-perm-dot"></span>
+      超管模式
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="page-header">
+      <div>
+        <h1>权限管理</h1>
+        <p>权限码规范：模块:操作（如 agent:view）。共 43 个权限码，覆盖 9 个业务模块。</p>
+      </div>
+      <div class="page-header-actions">
+        <button class="btn btn-primary" onclick="openModal('create')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          创建权限
+        </button>
+      </div>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat-card">
+        <div class="stat-label">权限总数</div>
+        <div class="stat-value">43</div>
+        <div class="stat-sub">覆盖 9 个模块</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">系统管理权限</div>
+        <div class="stat-value">15</div>
+        <div class="stat-sub">超管专属（user/role/permission）</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">业务模块权限</div>
+        <div class="stat-value">28</div>
+        <div class="stat-sub">Agent/Prompt/Knowledge/Tool 等</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="module-tabs">
+        <span class="module-tab active">全部 <span class="count">(43)</span></span>
+        <span class="module-tab">user <span class="count">(5)</span></span>
+        <span class="module-tab">role <span class="count">(5)</span></span>
+        <span class="module-tab">permission <span class="count">(4)</span></span>
+        <span class="module-tab">agent <span class="count">(5)</span></span>
+        <span class="module-tab">model <span class="count">(5)</span></span>
+        <span class="module-tab">provider <span class="count">(5)</span></span>
+        <span class="module-tab">prompt <span class="count">(5)</span></span>
+        <span class="module-tab">knowledge <span class="count">(5)</span></span>
+        <span class="module-tab">tool <span class="count">(5)</span></span>
+      </div>
+      <div class="card-body">
+        <table>
+          <thead>
+            <tr>
+              <th>权限编码</th>
+              <th>权限名称</th>
+              <th>所属模块</th>
+              <th>操作类型</th>
+              <th>描述</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="perm-code">user:view</span></td>
+              <td>查看用户</td>
+              <td><span class="badge badge-amber">user</span></td>
+              <td><span class="badge badge-blue">查看</span></td>
+              <td style="color:var(--text-muted);font-size:12px;">分页搜索/查看用户列表</td>
+              <td><a class="btn-link" href="#">编辑</a> <a class="btn-link" style="color:var(--red);" href="#">删除</a></td>
+            </tr>
+            <tr>
+              <td><span class="perm-code">user:create</span></td>
+              <td>创建用户</td>
+              <td><span class="badge badge-amber">user</span></td>
+              <td><span class="badge badge-green">创建</span></td>
+              <td style="color:var(--text-muted);font-size:12px;">新建系统用户账号</td>
+              <td><a class="btn-link" href="#">编辑</a> <a class="btn-link" style="color:var(--red);" href="#">删除</a></td>
+            </tr>
+            <tr>
+              <td><span class="perm-code">user:update</span></td>
+              <td>编辑用户</td>
+              <td><span class="badge badge-amber">user</span></td>
+              <td><span class="badge badge-blue">编辑</span></td>
+              <td style="color:var(--text-muted);font-size:12px;">修改用户信息、状态</td>
+              <td><a class="btn-link" href="#">编辑</a> <a class="btn-link" style="color:var(--red);" href="#">删除</a></td>
+            </tr>
+            <tr>
+              <td><span class="perm-code">user:delete</span></td>
+              <td>删除用户</td>
+              <td><span class="badge badge-amber">user</span></td>
+              <td><span class="badge badge-red">删除</span></td>
+              <td style="color:var(--text-muted);font-size:12px;">删除用户账号</td>
+              <td><a class="btn-link" href="#">编辑</a> <a class="btn-link" style="color:var(--red);" href="#">删除</a></td>
+            </tr>
+            <tr>
+              <td><span class="perm-code">user:assign-role</span></td>
+              <td>分配用户角色</td>
+              <td><span class="badge badge-amber">user</span></td>
+              <td><span class="badge badge-purple">专属</span></td>
+              <td style="color:var(--text-muted);font-size:12px;">给用户分配或变更角色</td>
+              <td><a class="btn-link" href="#">编辑</a> <a class="btn-link" style="color:var(--red);" href="#">删除</a></td>
+            </tr>
+            <tr>
+              <td><span class="perm-code">role:view</span></td>
+              <td>查看角色</td>
+              <td><span class="badge badge-purple">role</span></td>
+              <td><span class="badge badge-blue">查看</span></td>
+              <td style="color:var(--text-muted);font-size:12px;">分页搜索/查看角色列表</td>
+              <td><a class="btn-link" href="#">编辑</a> <a class="btn-link" style="color:var(--red);" href="#">删除</a></td>
+            </tr>
+            <tr>
+              <td><span class="perm-code">agent:view</span></td>
+              <td>查看 Agent</td>
+              <td><span class="badge badge-blue">agent</span></td>
+              <td><span class="badge badge-blue">查看</span></td>
+              <td style="color:var(--text-muted);font-size:12px;">查看 Agent 列表与详情</td>
+              <td><a class="btn-link" href="#">编辑</a> <a class="btn-link" style="color:var(--red);" href="#">删除</a></td>
+            </tr>
+            <tr>
+              <td><span class="perm-code">agent:create</span></td>
+              <td>创建 Agent</td>
+              <td><span class="badge badge-blue">agent</span></td>
+              <td><span class="badge badge-green">创建</span></td>
+              <td style="color:var(--text-muted);font-size:12px;">新建 Agent 配置</td>
+              <td><a class="btn-link" href="#">编辑</a> <a class="btn-link" style="color:var(--red);" href="#">删除</a></td>
+            </tr>
+            <tr>
+              <td><span class="perm-code">knowledge:view</span></td>
+              <td>查看知识库</td>
+              <td><span class="badge badge-green">knowledge</span></td>
+              <td><span class="badge badge-blue">查看</span></td>
+              <td style="color:var(--text-muted);font-size:12px;">查看知识库列表与详情</td>
+              <td><a class="btn-link" href="#">编辑</a> <a class="btn-link" style="color:var(--red);" href="#">删除</a></td>
+            </tr>
+            <tr>
+              <td><span class="perm-code">knowledge:document-manage</span></td>
+              <td>管理知识库文档</td>
+              <td><span class="badge badge-green">knowledge</span></td>
+              <td><span class="badge badge-purple">专属</span></td>
+              <td style="color:var(--text-muted);font-size:12px;">文档上传/处理/分段管理</td>
+              <td><a class="btn-link" href="#">编辑</a> <a class="btn-link" style="color:var(--red);" href="#">删除</a></td>
+            </tr>
+            <tr>
+              <td><span class="perm-code">model:test</span></td>
+              <td>模型连接测试</td>
+              <td><span class="badge badge-blue">model</span></td>
+              <td><span class="badge badge-purple">专属</span></td>
+              <td style="color:var(--text-muted);font-size:12px;">测试模型/供应商连接</td>
+              <td><a class="btn-link" href="#">编辑</a> <a class="btn-link" style="color:var(--red);" href="#">删除</a></td>
+            </tr>
+            <tr>
+              <td><span class="perm-code">tool:test</span></td>
+              <td>工具测试</td>
+              <td><span class="badge badge-gray">tool</span></td>
+              <td><span class="badge badge-purple">专属</span></td>
+              <td style="color:var(--text-muted);font-size:12px;">测试工具 API 调用</td>
+              <td><a class="btn-link" href="#">编辑</a> <a class="btn-link" style="color:var(--red);" href="#">删除</a></td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="pagination">
+          <span>显示 1–12 / 共 43 条</span>
+          <div class="pagination-pages">
+            <a class="page-btn" href="#">‹</a>
+            <a class="page-btn active" href="#">1</a>
+            <a class="page-btn" href="#">2</a>
+            <a class="page-btn" href="#">3</a>
+            <a class="page-btn" href="#">4</a>
+            <a class="page-btn" href="#">5</a>
+            <a class="page-btn" href="#">›</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Create Permission Modal -->
+<div class="modal-overlay" id="modal-create">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>创建权限</h3>
+      <button class="modal-close" onclick="closeModal('create')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>权限编码</label>
+        <input type="text" placeholder="格式: 模块:操作（如 agent:view）">
+        <div class="form-hint">全小写，英文冒号分隔，创建后不可修改</div>
+      </div>
+      <div class="form-group">
+        <label>权限名称</label>
+        <input type="text" placeholder="请输入权限名称（中文）">
+      </div>
+      <div class="form-group">
+        <label>权限描述</label>
+        <input type="text" placeholder="可选，简要说明该权限用途">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('create')">取消</button>
+      <button class="btn btn-primary">创建权限</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function openModal(id) { document.getElementById('modal-' + id).classList.add('active'); }
+  function closeModal(id) { document.getElementById('modal-' + id).classList.remove('active'); }
+  document.querySelectorAll('.modal-overlay').forEach(el => {
+    el.addEventListener('click', e => { if (e.target === el) el.classList.remove('active'); });
+  });
+  document.querySelectorAll('.module-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.module-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+    });
+  });
+</script>
+</body>
+</html>
