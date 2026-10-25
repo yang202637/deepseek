@@ -1,24 +1,18 @@
 import io
 
-from minio import  Minio
-
 from src.core.config import get_settings
+from src.infra.mock_minio import MockMinioClient
 from loguru import logger
 
 
 # 获取配置
 settings = get_settings()
 
-# 创建 MinIO 客户端
-_minio_client = Minio(
-    settings.MINIO_ENDPOINT,
-    access_key=settings.MINIO_ACCESS_KEY,
-    secret_key=settings.MINIO_SECRET_KEY,
-    secure=settings.MINIO_SECURE,
-)
+# 本地免 Docker 开发：使用内存模拟 MinIO（接口与 minio.Minio 保持一致，重启即丢失）
+_minio_client = MockMinioClient()
 
 # 暴露 MinIO 客户端实例
-def get_minio_client() -> Minio:
+def get_minio_client() -> MockMinioClient:
     """
     FastAPI Depends 注入用。
     直接返回模块级别的 MinIO 客户端实例，不需要每次创建新实例。
@@ -78,7 +72,9 @@ def download_file(object_name: str) -> bytes:
         raise e
     finally:
         resp.close() # 关闭响应流
-        resp.release_conn() # 释放连接
+        release_conn = getattr(resp, "release_conn", None)
+        if release_conn:
+            release_conn() # 释放连接（真实 MinIO 才有该方法）
 
 
 def delete_object(object_name: str) -> None:
