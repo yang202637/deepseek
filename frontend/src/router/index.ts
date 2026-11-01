@@ -1,12 +1,8 @@
-// router/index.ts — 路由配置
-
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import { useAuthStore } from '@/store/auth'
 
 const routes: RouteRecordRaw[] = [
-  {
-    path: '/',
-    redirect: '/users',
-  },
+  { path: '/', redirect: '/users' },
   {
     path: '/login',
     name: 'login',
@@ -18,6 +14,18 @@ const routes: RouteRecordRaw[] = [
     name: 'users',
     component: () => import('@/pages/Users.vue'),
     meta: { title: '用户管理' },
+  },
+  {
+    path: '/roles',
+    name: 'roles',
+    component: () => import('@/pages/Roles.vue'),
+    meta: { title: '角色管理' },
+  },
+  {
+    path: '/permissions',
+    name: 'permissions',
+    component: () => import('@/pages/Permissions.vue'),
+    meta: { title: '权限管理' },
   },
   {
     path: '/:pathMatch(.*)*',
@@ -32,11 +40,13 @@ const router = createRouter({
   routes,
 })
 
-// 全局前置守卫：设置标题 + 简单鉴权示例
-router.beforeEach((to, _from, next) => {
+router.beforeEach(async (to, _from, next) => {
   document.title = `${to.meta.title || '页面'} · 辰光 Agent 平台`
-  const token = localStorage.getItem('token')
-  if (to.path !== '/login' && !token) {
+  const auth = useAuthStore()
+  if (!auth.isLoggedIn) {
+    await auth.init()
+  }
+  if (to.path !== '/login' && !auth.isLoggedIn) {
     next('/login')
   } else {
     next()

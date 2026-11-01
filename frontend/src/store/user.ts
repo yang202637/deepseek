@@ -1,25 +1,18 @@
 // store/user.ts — 用户状态管理（Pinia）
-
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { PageResult, User, UserPayload } from '@/types'
 import * as userService from '@/services/user'
 
 export const useUserStore = defineStore('user', () => {
-  // state
   const list = ref<User[]>([])
   const total = ref(0)
   const loading = ref(false)
 
-  // actions
   async function fetchPage(page = 1, pageSize = 10, keyword?: string) {
     loading.value = true
     try {
-      const res: PageResult<User> = await userService.fetchUserPage({
-        page,
-        pageSize,
-        keyword,
-      })
+      const res: PageResult<User> = await userService.fetchUserPage({ page, pageSize, keyword })
       list.value = res.items
       total.value = res.total
       return res

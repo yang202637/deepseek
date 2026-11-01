@@ -18,5 +18,10 @@ export default defineConfig({
     globals: false,
     include: ['test/**/*.test.ts'],
     css: false,
+    resolve: {
+      alias: {
+        '@': fileURLToPath(new URL('./src', import.meta.url)),
+      },
+    },
   },
 })
