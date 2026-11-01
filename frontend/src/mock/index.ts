@@ -30,12 +30,24 @@ const permissions: Permission[] = [
   { id: 10, module: 'prompt', code: 'prompt:view', name: '查看 Prompt', description: '查看 Prompt 列表', createdAt: '2026-10-25' },
 ]
 
+/** 安全解析 config.data（axios 序列化后为 JSON 字符串） */
+function parseBody<T>(config: { data?: unknown }): T {
+  if (typeof config.data === 'string') {
+    try {
+      return JSON.parse(config.data) as T
+    } catch {
+      return {} as T
+    }
+  }
+  return (config.data ?? {}) as T
+}
+
 export function setupMock() {
   const mock = new MockAdapter(request, { delayResponse: 100 })
 
   // ===== 认证 =====
   mock.onPost('/auth/login').reply((config) => {
-    const payload = (config.data ?? {}) as { username?: string }
+    const payload = parseBody<{ username?: string; password?: string }>(config)
     if (payload.username === 'admin') {
       return [200, { code: 200, message: 'success', data: { access_token: 'mock-admin-token', expires_in: 1800 } }]
     }
@@ -71,7 +83,7 @@ export function setupMock() {
   })
 
   mock.onPost('/users').reply((config) => {
-    const p = (config.data ?? {}) as Partial<User>
+    const p = parseBody<Partial<User>>(config)
     const user: User = {
       id: users.length + 1,
       username: p.username!,
@@ -85,7 +97,9 @@ export function setupMock() {
     return [200, { code: 200, message: 'success', data: user }]
   })
 
-  mock.onDelete('/users/4').reply(200, { code: 200, message: 'success', data: null })
+  mock.onDelete(/\/users\/\d+$/).reply(() => {
+    return [200, { code: 200, message: 'success', data: null }]
+  })
 
   // ===== 角色 =====
   mock.onGet('/roles/search').reply((config) => {
@@ -100,7 +114,7 @@ export function setupMock() {
   })
 
   mock.onPost('/roles').reply((config) => {
-    const p = (config.data ?? {}) as Partial<Role>
+    const p = parseBody<Partial<Role>>(config)
     const role: Role = {
       id: roles.length + 1,
       name: p.name!,
@@ -114,8 +128,9 @@ export function setupMock() {
     return [200, { code: 200, message: 'success', data: role }]
   })
 
-  mock.onPut('/roles/3').reply(200, { code: 200, message: 'success', data: roles[2] })
-  mock.onDelete('/roles/3').reply(200, { code: 200, message: 'success', data: null })
+  mock.onDelete(/\/roles\/\d+$/).reply(() => {
+    return [200, { code: 200, message: 'success', data: null }]
+  })
 
   // ===== 权限 =====
   mock.onGet('/permissions/search').reply((config) => {
@@ -130,7 +145,7 @@ export function setupMock() {
   })
 
   mock.onPost('/permissions').reply((config) => {
-    const p = (config.data ?? {}) as Partial<Permission>
+    const p = parseBody<Partial<Permission>>(config)
     const perm: Permission = {
       id: permissions.length + 1,
       module: p.module!,
@@ -143,7 +158,9 @@ export function setupMock() {
     return [200, { code: 200, message: 'success', data: perm }]
   })
 
-  mock.onDelete('/permissions/10').reply(200, { code: 200, message: 'success', data: null })
+  mock.onDelete(/\/permissions\/\d+$/).reply(() => {
+    return [200, { code: 200, message: 'success', data: null }]
+  })
 
   return mock
 }
