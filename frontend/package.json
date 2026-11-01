@@ -1,0 +1,32 @@
+{
+  "name": "chenguang-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "辰光 Agent 平台前端框架 — Vue3 + TypeScript + Pinia + Vue-Router 工程化分层脚手架",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "type-check": "vue-tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "axios": "^1.7.7",
+    "axios-mock-adapter": "^2.1.0",
+    "pinia": "^2.2.6",
+    "vue": "^3.5.12",
+    "vue-router": "^4.4.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.1.4",
+    "@vue/test-utils": "^2.4.6",
+    "jsdom": "^25.0.1",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10",
+    "vitest": "^2.1.4",
+    "vue-tsc": "^2.1.10"
+  }
+}
