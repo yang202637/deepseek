@@ -29,3 +29,17 @@ class UserWithRolesRead(BaseModel):
 
 class UserAssignRoles(BaseModel):
     role_ids: list[int]
+
+
+class UserAuthRead(BaseModel):
+    """当前用户授权信息：身份 + 角色 + 权限码 + 数据范围"""
+    id: int
+    username: str
+    email: str
+    is_active: bool
+    is_superuser: bool
+    roles: list[RoleRead] = []
+    permissions: list[str] = []
+    data_scope: str = "self"
+
+    model_config = {"from_attributes": True}

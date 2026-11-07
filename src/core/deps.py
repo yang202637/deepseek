@@ -5,6 +5,7 @@ from src.infra.database import get_db
 from src.core.exceptions import BizException
 from src.utils.jwt_utils import verify_jwt, oauth2_scheme
 from src.modules.user.model import User
+from src.core.authorization import get_user_permissions
 
 
 # oauth2_scheme  是  fastapi 自带的功能，从 Authorization 头中提取 bearer 开头的 token
@@ -33,6 +34,36 @@ async def get_current_user(
         raise BizException(code=401, message="账号已被禁用")
 
     return user
+
+
+def require_permission(*codes: str):
+    """依赖工厂：校验当前用户是否拥有任一权限码（OR 语义），超管直接放行。
+
+    用法：
+        @router.get("")
+        async def list_agents(current_user: User = Depends(require_permission("agent:view"))):
+            ...
+    """
+    def _require_permission(
+        current_user: User = Depends(get_current_user),
+    ) -> User:
+        if current_user.is_superuser:
+            return current_user
+        owned = set(get_user_permissions(current_user))
+        if not owned.intersection(codes):
+            raise BizException(code=403, message="无权限")
+        return current_user
+
+    return _require_permission
+
+
+async def require_superuser(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """依赖：仅超管可访问，否则抛 403。"""
+    if not current_user.is_superuser:
+        raise BizException(code=403, message="无权限")
+    return current_user
 
 # api/v1/users?page=1&page_size=10&keyword=张三
 # select * from users where name like '%张三%' limit 20,10

@@ -16,3 +16,5 @@ class LoginRequest(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    permissions: list[str] = []
+    data_scope: str = "self"

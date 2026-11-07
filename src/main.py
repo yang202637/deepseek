@@ -6,7 +6,8 @@ from src.core.config import get_settings
 from src.middlewares.logging import LoggingMiddleware
 from src.core.exceptions import register_exception_handlers
 from src.core.logger import setup_logger
-from src.infra.database import engine
+from src.core.seed import seed_data
+from src.infra.database import engine, AsyncSessionLocal
 from src.modules.user.api import router as user_router
 from src.modules.captcha.api import router as captcha_router
 from src.modules.auth.api import router as auth_router
@@ -36,6 +37,13 @@ async def lifespan(app: FastAPI):
         ensure_bucket_exists()
     except Exception as e:
         logger.error(f"minio 桶创建失败，文件上传功能将无法使用：{e}")
+
+    # 写入 RBAC 引导数据（权限码、超管、角色，幂等）
+    try:
+        async with AsyncSessionLocal() as db:
+            await seed_data(db)
+    except Exception as e:
+        logger.error(f"RBAC 引导数据写入失败：{e}")
 
     yield
     # 应用关闭时执行

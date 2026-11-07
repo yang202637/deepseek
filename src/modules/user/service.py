@@ -1,9 +1,11 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.modules.role.repository import RoleRepository
+from src.modules.role.schema import RoleRead
 from src.core.exceptions import BizException
+from src.core.authorization import get_user_permissions, get_user_data_scope
 from src.modules.user.model import User
-from src.modules.user.schema import UserCreate
+from src.modules.user.schema import UserCreate, UserAuthRead
 from src.modules.user.repository import UserRepository
 from src.utils.password_utils import hash_password
 
@@ -70,3 +72,16 @@ class UserService:
 
     async def delete_user(self, user_id: int) -> None:
         await self.repo.delete_by_id(user_id)
+
+    async def get_user_authorization(self, user: User) -> UserAuthRead:
+        """聚合当前用户授权信息：角色 + 权限码 + 数据范围。"""
+        return UserAuthRead(
+            id=user.id,
+            username=user.username,
+            email=user.email,
+            is_active=user.is_active,
+            is_superuser=user.is_superuser,
+            roles=[RoleRead.model_validate(r) for r in user.roles],
+            permissions=get_user_permissions(user),
+            data_scope=get_user_data_scope(user),
+        )

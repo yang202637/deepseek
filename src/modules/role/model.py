@@ -17,6 +17,9 @@ class Role(BaseModel):
     code: Mapped[str] = mapped_column(String(100), unique=True, comment="角色编码")
     name: Mapped[str] = mapped_column(String(100),  comment="角色名称")
     description: Mapped[str] = mapped_column(String(200), nullable=True, comment="角色描述")
+    data_scope: Mapped[str] = mapped_column(
+        String(20), default="self", comment="数据范围: all/self"
+    )
     permissions: Mapped[list["Permission"]] = relationship(
         "Permission",
         secondary=role_permissions,

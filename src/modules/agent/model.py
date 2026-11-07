@@ -45,7 +45,11 @@ class Agent(BaseModel):
     )
 
     created_by: Mapped[str | None] = mapped_column(
-        String(100), nullable=True, comment="创建者"
+        String(100), nullable=True, comment="创建者用户名（展示用）"
+    )
+    created_by_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True, comment="创建者用户ID（数据范围过滤用）"
     )
 
     # 关联版本列表

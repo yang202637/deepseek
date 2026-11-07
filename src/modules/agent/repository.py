@@ -17,15 +17,32 @@ class AgentRepository(BaseRepository[Agent]):
         return result.scalars().all()
 
     async def search_page(
-        self, offset: int, limit: int, keyword: str | None
+        self, offset: int, limit: int, keyword: str | None,
+        owner_id: int | None = None,
     ) -> tuple[list[Agent], int]:
-        """分页 + 搜索"""
-        return await self.get_page(
-            offset=offset,
-            limit=limit,
-            keyword=keyword,
-            search_fields=self.SEARCH_FIELDS,
-        )
+        """分页 + 搜索 + 可选归属过滤（数据范围 self 时传入当前用户 id）。"""
+        from sqlalchemy import func, or_
+        stmt = select(Agent)
+        conditions = []
+        if keyword and self.SEARCH_FIELDS:
+            kw_conditions = []
+            for field_name in self.SEARCH_FIELDS:
+                column = getattr(Agent, field_name, None)
+                if column is not None:
+                    kw_conditions.append(column.like(f"%{keyword}%"))
+            if kw_conditions:
+                conditions.append(or_(*kw_conditions))
+        if owner_id is not None:
+            conditions.append(Agent.created_by_id == owner_id)
+        if conditions:
+            stmt = stmt.where(*conditions)
+
+        count_stmt = select(func.count()).select_from(stmt.subquery())
+        total = (await self.db.execute(count_stmt)).scalar_one()
+
+        stmt = stmt.offset(offset).limit(limit).order_by(Agent.id.asc())
+        items = list((await self.db.execute(stmt)).scalars().all())
+        return items, total
 
 
 class AgentVersionRepository(BaseRepository[AgentVersion]):

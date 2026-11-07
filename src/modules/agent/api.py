@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.infra.database import get_db
 from src.core.base_schema import ResponseSchema, PageResult
-from src.core.deps import PageParams
+from src.core.deps import PageParams, get_current_user, require_permission
+from src.modules.user.model import User
 from src.modules.agent.schema import (
     AgentCreate, AgentUpdate, AgentRead,
     AgentVersionRead, PublishRequest, RollbackRequest,
@@ -20,8 +21,9 @@ def get_agent_service(db: AsyncSession = Depends(get_db)) -> AgentService:
 async def create_agent(
     data: AgentCreate,
     svc: AgentService = Depends(get_agent_service),
+    current_user: User = Depends(require_permission("agent:create")),
 ):
-    result = await svc.create_agent(data)
+    result = await svc.create_agent(data, current_user)
     return ResponseSchema(data=result)
 
 
@@ -29,8 +31,9 @@ async def create_agent(
 async def list_agents(
     params: PageParams = Depends(),
     svc: AgentService = Depends(get_agent_service),
+    current_user: User = Depends(require_permission("agent:view")),
 ):
-    page_result = await svc.list_agents(params)
+    page_result = await svc.list_agents(params, current_user)
     return ResponseSchema(data=page_result)
 
 
@@ -38,8 +41,9 @@ async def list_agents(
 async def get_agent(
     agent_id: int,
     svc: AgentService = Depends(get_agent_service),
+    current_user: User = Depends(require_permission("agent:view")),
 ):
-    result = await svc.get_agent(agent_id)
+    result = await svc.get_agent(agent_id, current_user)
     return ResponseSchema(data=result)
 
 
@@ -47,8 +51,9 @@ async def get_agent(
 async def update_agent(
     agent_id: int, data: AgentUpdate,
     svc: AgentService = Depends(get_agent_service),
+    current_user: User = Depends(require_permission("agent:update")),
 ):
-    result = await svc.update_agent(agent_id, data)
+    result = await svc.update_agent(agent_id, data, current_user)
     return ResponseSchema(data=result)
 
 
@@ -56,8 +61,9 @@ async def update_agent(
 async def delete_agent(
     agent_id: int,
     svc: AgentService = Depends(get_agent_service),
+    current_user: User = Depends(require_permission("agent:delete")),
 ):
-    await svc.delete_agent(agent_id)
+    await svc.delete_agent(agent_id, current_user)
     return ResponseSchema(message="删除成功")
 
 
@@ -65,8 +71,9 @@ async def delete_agent(
 async def start_agent(
     agent_id: int,
     svc: AgentService = Depends(get_agent_service),
+    current_user: User = Depends(require_permission("agent:update")),
 ):
-    result = await svc.start_agent(agent_id)
+    result = await svc.start_agent(agent_id, current_user)
     return ResponseSchema(data=result)
 
 
@@ -74,8 +81,9 @@ async def start_agent(
 async def stop_agent(
     agent_id: int,
     svc: AgentService = Depends(get_agent_service),
+    current_user: User = Depends(require_permission("agent:update")),
 ):
-    result = await svc.stop_agent(agent_id)
+    result = await svc.stop_agent(agent_id, current_user)
     return ResponseSchema(data=result)
 
 
@@ -83,8 +91,9 @@ async def stop_agent(
 async def publish_agent(
     agent_id: int, data: PublishRequest,
     svc: AgentService = Depends(get_agent_service),
+    current_user: User = Depends(require_permission("agent:publish")),
 ):
-    result = await svc.publish(agent_id, data)
+    result = await svc.publish(agent_id, data, current_user)
     return ResponseSchema(data=result)
 
 
@@ -92,8 +101,9 @@ async def publish_agent(
 async def get_versions(
     agent_id: int,
     svc: AgentService = Depends(get_agent_service),
+    current_user: User = Depends(require_permission("agent:view")),
 ):
-    results = await svc.get_versions(agent_id)
+    results = await svc.get_versions(agent_id, current_user)
     return ResponseSchema(data=results)
 
 
@@ -101,6 +111,7 @@ async def get_versions(
 async def rollback_agent(
     agent_id: int, data: RollbackRequest,
     svc: AgentService = Depends(get_agent_service),
+    current_user: User = Depends(require_permission("agent:publish")),
 ):
-    result = await svc.rollback(agent_id, data)
+    result = await svc.rollback(agent_id, data, current_user)
     return ResponseSchema(data=result)

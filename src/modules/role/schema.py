@@ -5,16 +5,19 @@ class RoleCreate(BaseModel):
     code: str              # 角色标识，如 "admin"
     name: str              # 角色名称，如 "管理员"
     description: str | None = None
+    data_scope: str = "self"   # 数据范围: all/self，默认 self
 
 class RoleUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
+    data_scope: str | None = None
 
 class RoleRead(BaseModel):
     id: int
     code: str
     name: str
     description: str | None
+    data_scope: str = "self"
     permissions: list[PermissionRead] = []    # 嵌套返回角色拥有的权限
     model_config = {"from_attributes": True}
 

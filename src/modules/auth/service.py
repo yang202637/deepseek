@@ -5,6 +5,7 @@ from src.modules.auth.schema import LoginRequest, TokenResponse
 from src.modules.captcha.schema import CaptchaVerifyRequest
 from src.modules.user.repository import UserRepository
 from src.core.exceptions import BizException
+from src.core.authorization import get_user_permissions, get_user_data_scope
 from src.utils.password_utils import verify_password
 from src.utils.jwt_utils import encode_jwt
 from datetime import datetime, timezone
@@ -48,6 +49,8 @@ class AuthService:
         token = encode_jwt(payload)
         logger.info(f"生成token: {token}")
 
-
-
-        return TokenResponse(access_token=token)
+        return TokenResponse(
+            access_token=token,
+            permissions=get_user_permissions(user),
+            data_scope=get_user_data_scope(user),
+        )

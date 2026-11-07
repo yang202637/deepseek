@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.exceptions import BizException
 from src.core.base_schema import PageResult
 from src.core.deps import PageParams
+from src.core.authorization import get_user_data_scope
 from src.modules.agent.model import Agent, AgentVersion
 from src.modules.agent.repository import AgentRepository, AgentVersionRepository
 from src.modules.agent.schema import (
@@ -33,9 +34,20 @@ class AgentService:
             updated_at=agent.updated_at,
         )
 
+    def _owner_filter(self, current_user) -> int | None:
+        """self 范围返回当前用户 id 用于过滤，all 范围返回 None 不过滤。"""
+        if get_user_data_scope(current_user) == "all":
+            return None
+        return current_user.id
+
+    def _ensure_owner(self, agent: Agent, current_user) -> None:
+        """self 范围且非本人创建时拒绝访问。"""
+        if get_user_data_scope(current_user) == "self" and agent.created_by_id != current_user.id:
+            raise BizException(code=403, message="无权限访问该资源")
+
     # ===== CRUD =====
 
-    async def create_agent(self, data: AgentCreate, current_user: str = None) -> AgentRead:
+    async def create_agent(self, data: AgentCreate, current_user=None) -> AgentRead:
         agent = Agent(
             name=data.name,
             description=data.description,
@@ -44,23 +56,28 @@ class AgentService:
             config=data.config.model_dump() if data.config else None,
             status="draft",
             version="v0.1",
-            created_by=current_user,
+            created_by=getattr(current_user, "username", None),
+            created_by_id=getattr(current_user, "id", None),
         )
         agent = await self.repo.create(agent)
         return self._to_read(agent)
 
-    async def get_agent(self, agent_id: int) -> AgentRead:
+    async def get_agent(self, agent_id: int, current_user=None) -> AgentRead:
         agent = await self.repo.get_by_id(agent_id)
         if not agent:
             raise BizException(code=45001, message="Agent 不存在")
+        if current_user is not None:
+            self._ensure_owner(agent, current_user)
         return self._to_read(agent)
 
-    async def list_agents(self, params: PageParams) -> PageResult[AgentRead]:
-        """分页查询 Agent 列表"""
+    async def list_agents(self, params: PageParams, current_user=None) -> PageResult[AgentRead]:
+        """分页查询 Agent 列表（按数据范围过滤）"""
+        owner_filter = self._owner_filter(current_user) if current_user is not None else None
         items, total = await self.repo.search_page(
             offset=params.offset,
             limit=params.page_size,
             keyword=params.keyword,
+            owner_id=owner_filter,
         )
         return PageResult(
             items=[self._to_read(a) for a in items],
@@ -69,10 +86,12 @@ class AgentService:
             page_size=params.page_size,
         )
 
-    async def update_agent(self, agent_id: int, data: AgentUpdate) -> AgentRead:
+    async def update_agent(self, agent_id: int, data: AgentUpdate, current_user=None) -> AgentRead:
         agent = await self.repo.get_by_id(agent_id)
         if not agent:
             raise BizException(code=45001, message="Agent 不存在")
+        if current_user is not None:
+            self._ensure_owner(agent, current_user)
 
         if data.name is not None:
             agent.name = data.name
@@ -88,18 +107,22 @@ class AgentService:
         agent = await self.repo.update(agent)
         return self._to_read(agent)
 
-    async def delete_agent(self, agent_id: int) -> None:
+    async def delete_agent(self, agent_id: int, current_user=None) -> None:
         agent = await self.repo.get_by_id(agent_id)
         if not agent:
             raise BizException(code=45001, message="Agent 不存在")
+        if current_user is not None:
+            self._ensure_owner(agent, current_user)
         await self.repo.delete(agent)
 
     # ===== 生命周期管理 =====
 
-    async def start_agent(self, agent_id: int) -> AgentRead:
+    async def start_agent(self, agent_id: int, current_user=None) -> AgentRead:
         agent = await self.repo.get_by_id(agent_id)
         if not agent:
             raise BizException(code=45001, message="Agent 不存在")
+        if current_user is not None:
+            self._ensure_owner(agent, current_user)
         if agent.status == "active":
             raise BizException(code=45002, message="Agent 已在运行中")
 
@@ -108,10 +131,12 @@ class AgentService:
         agent = await self.repo.update(agent)
         return self._to_read(agent)
 
-    async def stop_agent(self, agent_id: int) -> AgentRead:
+    async def stop_agent(self, agent_id: int, current_user=None) -> AgentRead:
         agent = await self.repo.get_by_id(agent_id)
         if not agent:
             raise BizException(code=45001, message="Agent 不存在")
+        if current_user is not None:
+            self._ensure_owner(agent, current_user)
         if agent.status == "inactive":
             raise BizException(code=45003, message="Agent 已停止")
 
@@ -121,10 +146,12 @@ class AgentService:
 
     # ===== 版本管理 =====
 
-    async def publish(self, agent_id: int, data: PublishRequest, current_user: str = None) -> AgentRead:
+    async def publish(self, agent_id: int, data: PublishRequest, current_user=None) -> AgentRead:
         agent = await self.repo.get_by_id(agent_id)
         if not agent:
             raise BizException(code=45001, message="Agent 不存在")
+        if current_user is not None:
+            self._ensure_owner(agent, current_user)
 
         new_version = self._next_version(agent.version)
 
@@ -136,7 +163,7 @@ class AgentService:
             config=agent.config,
             changelog=data.changelog,
             is_current=True,
-            published_by=current_user,
+            published_by=getattr(current_user, "username", None),
             published_at=datetime.now(),
         )
         await self.version_repo.create(version)
@@ -147,14 +174,21 @@ class AgentService:
 
         return self._to_read(agent)
 
-    async def get_versions(self, agent_id: int) -> list[AgentVersionRead]:
-        versions = await self.version_repo.get_versions_by_agent(agent_id)
-        return [AgentVersionRead.model_validate(v) for v in versions]
-
-    async def rollback(self, agent_id: int, data: RollbackRequest) -> AgentRead:
+    async def get_versions(self, agent_id: int, current_user=None) -> list[AgentVersionRead]:
         agent = await self.repo.get_by_id(agent_id)
         if not agent:
             raise BizException(code=45001, message="Agent 不存在")
+        if current_user is not None:
+            self._ensure_owner(agent, current_user)
+        versions = await self.version_repo.get_versions_by_agent(agent_id)
+        return [AgentVersionRead.model_validate(v) for v in versions]
+
+    async def rollback(self, agent_id: int, data: RollbackRequest, current_user=None) -> AgentRead:
+        agent = await self.repo.get_by_id(agent_id)
+        if not agent:
+            raise BizException(code=45001, message="Agent 不存在")
+        if current_user is not None:
+            self._ensure_owner(agent, current_user)
 
         target = await self.version_repo.get_by_id(data.version_id)
         if not target or target.agent_id != agent_id:

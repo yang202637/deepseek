@@ -1,8 +1,9 @@
-from src.core.deps import PageParams
+from src.core.deps import PageParams, require_superuser
 from src.modules.role.schema import RoleAssignPermissions
 from src.modules.permission.schema import PermissionRead
 from src.core.base_schema import ResponseSchema, PageResult
 from src.modules.role.schema import RoleRead
+from src.modules.user.model import User
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.modules.role.schema import RoleCreate, RoleUpdate, RoleAssignPermissions
@@ -21,7 +22,8 @@ def get_role_service(db: AsyncSession = Depends(get_db)) -> RoleService:
 
 @router.get("/search", response_model=ResponseSchema[PageResult[RoleRead]], summary="分页搜索角色")
 async def list_search_results(svc: RoleService = Depends(get_role_service),
-                              params: PageParams = Depends()):
+                              params: PageParams = Depends(),
+                              _current_user: User = Depends(require_superuser)):
     """分页搜索权限"""
     roles, total_count = await svc.search_page(params.offset, params.page_size, params.keyword)
 
@@ -36,13 +38,15 @@ async def list_search_results(svc: RoleService = Depends(get_role_service),
     ))
 # POST  /api/v1/roles   创建角色
 @router.post("", response_model=ResponseSchema[RoleRead])
-async def create_role(role: RoleCreate, service: RoleService = Depends(get_role_service)):
+async def create_role(role: RoleCreate, service: RoleService = Depends(get_role_service),
+                      _current_user: User = Depends(require_superuser)):
     data = await service.create_role(role)
     return ResponseSchema[RoleRead](data=RoleRead.model_validate(data))
 
 # GET   /api/v1/roles/{role_id} 角色详情（含权限列表）
 @router.get("/{role_id}", response_model=ResponseSchema[RoleRead])
-async def get_role(role_id: int, service: RoleService = Depends(get_role_service)):
+async def get_role(role_id: int, service: RoleService = Depends(get_role_service),
+                   _current_user: User = Depends(require_superuser)):
     data = await service.get_role(role_id)
     permissions = [PermissionRead.model_validate(p) for p in data.permissions]
 
@@ -52,29 +56,29 @@ async def get_role(role_id: int, service: RoleService = Depends(get_role_service
 
 # GET   /api/v1/roles   角色列表
 @router.get("/", response_model=ResponseSchema[list[RoleRead]])
-async def get_roles(service: RoleService = Depends(get_role_service)):
+async def get_roles(service: RoleService = Depends(get_role_service),
+                    _current_user: User = Depends(require_superuser)):
     data = await service.list_roles()
     return ResponseSchema[list[RoleRead]](data=[RoleRead.model_validate(r) for r in data])
 
 # PUT   /api/v1/roles/{role_id} 更新角色
 @router.put("/{role_id}", response_model=ResponseSchema[RoleRead])
-async def update_role(role_id: int, role: RoleUpdate, service: RoleService = Depends(get_role_service)):
+async def update_role(role_id: int, role: RoleUpdate, service: RoleService = Depends(get_role_service),
+                      _current_user: User = Depends(require_superuser)):
     data = await service.update_role(role_id, role)
     return ResponseSchema[RoleRead](data=RoleRead.model_validate(data))
 
 # DELETE    /api/v1/roles/{role_id} 删除角色
 @router.delete("/{role_id}", response_model=ResponseSchema[None])
-async def delete_role(role_id: int, service: RoleService = Depends(get_role_service)):
+async def delete_role(role_id: int, service: RoleService = Depends(get_role_service),
+                      _current_user: User = Depends(require_superuser)):
     await service.delete_role(role_id)
     return ResponseSchema[None](data=None)
 
 # PUT   /api/v1/roles/{role_id}/permissions 给角色分配权限
 @router.put("/{role_id}/permissions", response_model=ResponseSchema[RoleRead])
 async def update_role_permissions(role_id: int, role_permissions: RoleAssignPermissions,
-        service: RoleService = Depends(get_role_service)):
+        service: RoleService = Depends(get_role_service),
+        _current_user: User = Depends(require_superuser)):
     data = await service.assign_permissions(role_id, role_permissions.permission_ids)
     return ResponseSchema[RoleRead](data=RoleRead.model_validate(data))
-
-
-
-

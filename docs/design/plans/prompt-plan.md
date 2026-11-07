@@ -1,0 +1,61 @@
+# Prompt 管理 模块实施计划
+
+> **实现方式：** 使用 superpowers:executing-plans 或 subagent-driven-development 逐任务实施。步骤使用 `- [ ]` 复选框跟踪。
+
+**目标：** 为 Prompt 补齐数据权限（`created_by` 升级外键 + 查询过滤 + 写入归属）与功能权限（接口挂载 `prompt:*` 权限码）。
+
+**架构：** 将 `prompts.created_by` 升级为外键；查询按当前用户数据范围过滤，创建自动写归属；接口按 `prompt:view/create/update/delete/publish` 挂载 `require_permission`。
+
+**技术栈：** Python 3.13 + FastAPI + SQLAlchemy 2.0 async + Alembic。
+
+**Spec：** `docs/spec/PROJECT_SPEC_V2.md`（§5.1.5 挂载矩阵、§5.2.4 过滤与写入规则、§6.2 created_by 迁移）
+
+## 全局约束
+
+- `created_by` 升级为外键指向 `users.id`；旧数据按 `users.username` 回填，无法匹配置空。
+- `self` 范围仅见自己创建的 Prompt；`all` 范围不过滤。
+- 接口权限码：`prompt:view` / `prompt:create` / `prompt:update` / `prompt:delete` / `prompt:publish`。
+
+## 文件结构
+
+| 操作 | 文件 | 职责 |
+|------|------|------|
+| 修改 | `src/modules/prompt/model.py` | `created_by` 改为外键 |
+| 新建 | `alembic/versions/xxxx_prompt_created_by_fk.py` | 迁移 |
+| 修改 | `src/modules/prompt/repository.py` | 查询过滤 + 写入归属 |
+| 修改 | `src/modules/prompt/service.py` | 数据范围透传 |
+| 修改 | `src/modules/prompt/api.py` | 挂载权限码 + 注入当前用户 |
+| Test | `test/test_prompt.py` | 数据范围测试 |
+
+## 任务分解
+
+### Task 1: `created_by` 升级外键 + 迁移
+
+- [ ] 修改 `Prompt.created_by` 为 `BigInteger, ForeignKey("users.id", ondelete="SET NULL")`
+- [ ] 生成迁移并补回填逻辑
+- [ ] `alembic upgrade head`
+- [ ] 提交
+
+### Task 2: 数据范围过滤与写入归属
+
+- [ ] 编写失败测试：`self` 仅见自己 Prompt，`all` 见全部
+- [ ] 实现 `owner_id` 过滤 + 创建写 `created_by`
+- [ ] 运行确认通过
+- [ ] 提交
+
+### Task 3: 接口挂载功能权限
+
+- [ ] `GET` → `prompt:view`；`POST` → `prompt:create`；`PUT` → `prompt:update`；`DELETE` → `prompt:delete`；发布/版本 → `prompt:publish`
+- [ ] 注入 `current_user` 供过滤；越权详情返回 403
+- [ ] 提交
+
+## 评审要点（Review Focus）
+
+1. 越权详情 403 不泄露存在性——Task 3 覆盖。
+2. 超管/`all` 范围不过滤——Task 2 覆盖。
+3. 旧数据回填置空的 Prompt 仅 `all` 范围可见——Task 1 覆盖。
+
+## 验收标准
+
+- [ ] `self` 用户仅见自己创建的 Prompt。
+- [ ] 无对应权限码访问返回 403。

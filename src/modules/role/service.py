@@ -38,12 +38,25 @@ class RoleService:
         role = await self.get_role(role_id)
         if not role:
             raise BizException(f"角色 {role_id} 不存在")
-        role.name = data.name or role.name
-        role.description = data.description or role.description
+
+        # 超管角色锁定：data_scope 不可改、角色不可删（code == super_admin）
+        is_super_role = role.code == "super_admin"
+
+        if data.name is not None:
+            role.name = data.name
+        if data.description is not None:
+            role.description = data.description
+        if data.data_scope is not None:
+            if is_super_role:
+                raise BizException(code=403, message="超管角色 data_scope 锁定不可修改")
+            role.data_scope = data.data_scope
         role = await self.repo.update(role)
         return role
 
     async def delete_role(self, role_id: int) -> None:
+        role = await self.get_role(role_id)
+        if role.code == "super_admin":
+            raise BizException(code=403, message="超管角色不可删除")
         await self.repo.delete_by_id(role_id)
         return None
 
